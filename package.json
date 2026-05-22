@@ -1,0 +1,13 @@
+{
+  "name": "entropi",
+  "private": true,
+  "scripts": {
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter api build && pnpm --filter web build",
+    "test": "pnpm --filter api test"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
