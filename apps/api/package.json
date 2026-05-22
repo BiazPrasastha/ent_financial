@@ -1,0 +1,30 @@
+{
+  "name": "api",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/server.ts",
+    "build": "tsc",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@prisma/client": "^5.13.0",
+    "big.js": "^6.2.1",
+    "fastify": "^4.27.0",
+    "fastify-plugin": "^4.5.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/big.js": "^6.1.6",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.12.0",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^9.0.8",
+    "dotenv": "^17.4.2",
+    "jest": "^29.7.0",
+    "prisma": "^5.13.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.1.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.0"
+  }
+}
