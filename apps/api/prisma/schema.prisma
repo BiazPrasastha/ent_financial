@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────
+
+enum EventType {
+  OrderCreated
+  PaymentProcessing
+  PaymentConfirmed
+  FeeCalculated
+  OrderShipped
+  OrderDelivered
+  SettlementProcessed
+}
+
+enum AccountType {
+  order_balance
+  order_pending
+  payment_received
+  fees_owed
+  seller_payout
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  SHIPPED
+  DELIVERED
+  REFUNDED
+  SETTLED
+}
+
+// ── Models ─────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(uuid())
+  customerId      String
+  paymentMethod   String
+  amount          Decimal     @db.Decimal(18, 4)
+  status          OrderStatus @default(PENDING)
+  version         Int         @default(1)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(6)
+  events          EventLog[]
+  ledgerEntries   Ledger[]
+}
+
+model EventLog {
+  id              String      @id @default(uuid())
+  aggregateId     String                        // = orderId
+  eventType       EventType
+  payload         Json                          // amounts stored as strings inside JSON
+  version         Int
+  idempotencyKey  String      @unique
+  timestamp       DateTime    @default(now()) @db.Timestamptz(6)
+  order           Order       @relation(fields: [aggregateId], references: [id])
+
+  @@unique([aggregateId, version])
+  @@index([aggregateId, version])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+model Ledger {
+  id          String      @id @default(uuid())
+  orderId     String
+  account     AccountType
+  debit       Decimal?    @db.Decimal(18, 4)   // exactly one of debit/credit non-null
+  credit      Decimal?    @db.Decimal(18, 4)
+  description String      @default("")
+  timestamp   DateTime    @default(now()) @db.Timestamptz(6)
+  order       Order       @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([timestamp])
+}
