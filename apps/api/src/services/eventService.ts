@@ -1,4 +1,4 @@
-import { PrismaClient, EventLog, Order, Ledger } from "@prisma/client";
+import { PrismaClient, Prisma, EventLog, Order, Ledger } from "@prisma/client";
 import {
   IdempotencyConflictError,
   VersionConflictError,
@@ -19,7 +19,7 @@ export class EventService {
     amount: string,
     idempotencyKey: string
   ): Promise<{ order: Order; event: EventLog }> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.eventLog.findUnique({
         where: { idempotencyKey },
       });
@@ -85,7 +85,7 @@ export class EventService {
     stripeChargeId: string,
     idempotencyKey: string
   ): Promise<EventLog> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.eventLog.findUnique({
         where: { idempotencyKey },
       });
@@ -161,7 +161,7 @@ export class EventService {
     amount: string,
     idempotencyKey: string
   ): Promise<EventLog> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.eventLog.findUnique({
         where: { idempotencyKey },
       });
@@ -233,16 +233,14 @@ export class EventService {
   }
 
   async verifyLedgerBalance(orderId: string): Promise<boolean> {
-    const result = await this.prisma.$queryRawUnsafe<
-      { total_debit: string; total_credit: string }[]
-    >(
+    const result = await this.prisma.$queryRawUnsafe(
       `SELECT
         COALESCE(SUM(debit), 0) as total_debit,
         COALESCE(SUM(credit), 0) as total_credit
       FROM "Ledger"
       WHERE "orderId" = $1`,
       orderId
-    );
+    ) as { total_debit: string; total_credit: string }[];
 
     const totalDebit = toDecimal(result[0].total_debit);
     const totalCredit = toDecimal(result[0].total_credit);

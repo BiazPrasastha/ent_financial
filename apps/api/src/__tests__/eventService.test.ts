@@ -259,9 +259,9 @@ describe("EventService", () => {
     }
 
     // Sum all fees_owed DEBIT ledger entries
-    const result = await prisma.$queryRawUnsafe<{ total: string }[]>(
+    const result = await prisma.$queryRawUnsafe(
       `SELECT COALESCE(SUM(debit), 0) as total FROM "Ledger" WHERE "account" = 'fees_owed'`
-    );
+    ) as { total: string }[];
 
     expect(formatDecimal(toDecimal(result[0].total))).toBe("0.3000");
   });

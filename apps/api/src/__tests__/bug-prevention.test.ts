@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Ledger } from "@prisma/client";
 import { EventService } from "../services/eventService";
 import { StripeService } from "../services/stripeService";
 import { VersionConflictError, IdempotencyConflictError } from "../lib/errors";
@@ -139,17 +139,17 @@ describe("Bug Prevention Tests - CODE_REVIEW.md", () => {
     expect(ledgerEntries).toHaveLength(4);
 
     const paymentEntries = ledgerEntries.filter(
-      (e) => e.account === "payment_received" || e.account === "order_balance"
+      (e: Ledger) => e.account === "payment_received" || e.account === "order_balance"
     );
 
     const debitEntry = paymentEntries.find(
-      (e) => e.account === "payment_received" && e.debit?.equals("100.0000")
+      (e: Ledger) => e.account === "payment_received" && e.debit?.equals("100.0000")
     );
     expect(debitEntry).toBeDefined();
     expect(debitEntry!.account).toBe("payment_received");
 
     const creditEntry = paymentEntries.find(
-      (e) => e.account === "order_balance" && e.credit?.equals("100.0000")
+      (e: Ledger) => e.account === "order_balance" && e.credit?.equals("100.0000")
     );
     expect(creditEntry).toBeDefined();
     expect(creditEntry!.account).toBe("order_balance");

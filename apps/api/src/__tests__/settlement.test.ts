@@ -126,9 +126,9 @@ describe("SettlementService", () => {
     // Assert: getSettlementSummary totalPayout === sum of seller_payout DEBIT rows in Ledger
     const summary = await settlementService.getSettlementSummary(date);
 
-    const result = await prisma.$queryRawUnsafe<{ total: string }[]>(
+    const result = await prisma.$queryRawUnsafe(
       `SELECT COALESCE(SUM(debit), 0) as total FROM "Ledger" WHERE "account" = 'seller_payout'`
-    );
+    ) as { total: string }[];
 
     // Normalize to 4dp strings for comparison
     expect(formatDecimal(toDecimal(summary.totalPayout))).toBe(formatDecimal(toDecimal(result[0].total)));

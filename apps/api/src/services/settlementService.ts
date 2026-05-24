@@ -41,7 +41,7 @@ export class SettlementService {
       const key = `settlement-${date}-${orderId}`;
 
       try {
-        const result = await this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           // Idempotency check
           const existing = await tx.eventLog.findUnique({
             where: { idempotencyKey: key },
@@ -151,9 +151,7 @@ export class SettlementService {
     const startOfDay = new Date(`${date}T00:00:00`);
     const endOfDay = new Date(`${date}T23:59:59.999`);
 
-    const result = await this.prisma.$queryRawUnsafe<
-      { total_payout: string; orders_settled: number }[]
-    >(
+    const result = await this.prisma.$queryRawUnsafe(
       `SELECT
         COALESCE(SUM(debit), 0) as total_payout,
         COUNT(DISTINCT "orderId") as orders_settled
@@ -162,7 +160,7 @@ export class SettlementService {
         AND "timestamp" >= $1 AND "timestamp" <= $2`,
       startOfDay,
       endOfDay
-    );
+    ) as { total_payout: string; orders_settled: number }[];
 
     return {
       date,
@@ -177,21 +175,13 @@ export class SettlementService {
    */
   private async getNetPayout(
     orderId: string,
-    tx: Omit<
-      PrismaClient,
-      | "$connect"
-      | "$disconnect"
-      | "$on"
-      | "$transaction"
-      | "$use"
-      | "$extends"
-    >
+    tx: Prisma.TransactionClient
   ): Promise<string> {
     const result =
-      await tx.$queryRawUnsafe<{ total_fees: string | null }[]>(
+      await tx.$queryRawUnsafe(
         `SELECT COALESCE(SUM(debit), 0) as total_fees FROM "Ledger" WHERE "orderId" = $1 AND "account" = 'fees_owed'`,
         orderId
-      );
+      ) as { total_fees: string | null }[];
 
     const totalFees = result[0].total_fees ?? "0.0000";
     return totalFees;

@@ -2,7 +2,7 @@
   "name": "api",
   "scripts": {
     "dev": "ts-node-dev --respawn src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "test": "jest --runInBand"
   },
   "dependencies": {
