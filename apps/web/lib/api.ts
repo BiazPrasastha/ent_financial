@@ -1,44 +1,125 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-export interface OrderData {
-  id: string;
-  customerId: string;
-  paymentMethod: string;
-  amount: string;
-  status: string;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
+export type AmountString = string
+
+export type OrderStatus =
+  | 'PENDING' | 'PROCESSING' | 'PAID'
+  | 'SHIPPED' | 'DELIVERED' | 'REFUNDED' | 'SETTLED'
+
+export interface Order {
+  id: string
+  customerId: string
+  paymentMethod: string
+  amount: AmountString
+  status: OrderStatus
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LedgerEntry {
+  id: string
+  account: string
+  debit: AmountString | null
+  credit: AmountString | null
+  description: string
+  timestamp: string
+}
+
+export interface LedgerResponse {
+  entries: LedgerEntry[]
+  runningBalance: AmountString
+  isBalanced: boolean
 }
 
 export interface CreateOrderResponse {
-  orderId: string;
-  amount: string;
-  status: string;
-  fees: string;
-  netPayout: string;
-  eventId: string;
+  orderId: string
+  amount: AmountString
+  status: OrderStatus
+  fees: AmountString
+  netPayout: AmountString
+  eventId: string
 }
 
 export interface PayOrderResponse {
-  orderId: string;
-  chargeId: string;
-  status: string;
-  eventId: string;
+  orderId: string
+  chargeId: string
+  status: OrderStatus
+  eventId: string
 }
 
-export async function fetchOrder(orderId: string): Promise<OrderData> {
-  const res = await fetch(`${API_URL}/orders/${orderId}`, {
-    headers: { "Content-Type": "application/json" },
-  });
+export interface SettlementResult {
+  date: string
+  ordersSettled: number
+  ordersSkipped: number
+  totalPayout: AmountString
+  orderIds: string[]
+}
 
+export interface ApiError {
+  error: string
+  code: string
+  details?: unknown
+}
+
+export async function fetchOrder(orderId: string): Promise<Order> {
+  const res = await fetch(`${API_URL}/orders/${orderId}`)
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Failed to fetch order ${orderId}`);
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
   }
+  const json = await res.json()
+  return json.data as Order
+}
 
-  const json = await res.json();
-  return json.data as OrderData;
+export async function fetchLedger(
+  orderId: string
+): Promise<LedgerResponse> {
+  const res = await fetch(`${API_URL}/orders/${orderId}/ledger`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
+  }
+  const json = await res.json()
+  return json.data as LedgerResponse
+}
+
+export async function verifyLedger(
+  orderId: string
+): Promise<{ orderId: string; isBalanced: boolean }> {
+  const res = await fetch(`${API_URL}/verify-ledger/${orderId}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
+  }
+  const json = await res.json()
+  return json.data as { orderId: string; isBalanced: boolean }
+}
+
+export async function fetchOrders(status?: OrderStatus): Promise<Order[]> {
+  const url = status ? `${API_URL}/orders?status=${status}` : `${API_URL}/orders`
+  const res = await fetch(url)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
+  }
+  const json = await res.json()
+  return json.data as Order[]
+}
+
+export async function fetchSettlementSummary(date: string): Promise<{
+  date: string
+  totalPayout: AmountString
+  ordersSettled: number
+}> {
+  const res = await fetch(`${API_URL}/settle?date=${date}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
+  }
+  const json = await res.json()
+  return json.data as { date: string; totalPayout: AmountString; ordersSettled: number }
 }
 
 export async function createOrder(
@@ -54,15 +135,13 @@ export async function createOrder(
       "idempotency-key": idempotencyKey,
     },
     body: JSON.stringify({ customerId, paymentMethod, amount }),
-  });
-
+  })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to create order");
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
   }
-
-  const json = await res.json();
-  return json.data as CreateOrderResponse;
+  const json = await res.json()
+  return json.data as CreateOrderResponse
 }
 
 export async function payOrder(
@@ -77,51 +156,57 @@ export async function payOrder(
       "idempotency-key": idempotencyKey,
     },
     body: JSON.stringify({ amount }),
-  });
-
+  })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to pay order");
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
   }
-
-  const json = await res.json();
-  return json.data as PayOrderResponse;
+  const json = await res.json()
+  return json.data as PayOrderResponse
 }
 
-export async function fetchLedger(
+export async function runSettlement(
+  date: string,
+  idempotencyKey: string
+): Promise<SettlementResult> {
+  const res = await fetch(`${API_URL}/settle`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "idempotency-key": idempotencyKey,
+    },
+    body: JSON.stringify({ date }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
+  }
+  const json = await res.json()
+  return json.data as SettlementResult
+}
+
+export async function fetchEvents(
   orderId: string
-): Promise<{
-  entries: any[];
-  runningBalance: string;
-  isBalanced: boolean;
-}> {
-  const res = await fetch(`${API_URL}/orders/${orderId}/ledger`, {
-    headers: { "Content-Type": "application/json" },
-  });
-
+): Promise<Array<{
+  id: string
+  type: string
+  version: number
+  data: string
+  idempotencyKey: string
+  timestamp: string
+}>> {
+  const res = await fetch(`${API_URL}/orders/${orderId}/events`)
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to fetch ledger");
+    const body = await res.json().catch(() => ({})) as ApiError
+    throw body
   }
-
-  const json = await res.json();
-  return json.data;
-}
-
-const STORAGE_KEY = "entropi_recent_orders";
-
-export function getRecentOrders(): { id: string; customerId: string; amount: string; createdAt: string }[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-export function addRecentOrder(order: { id: string; customerId: string; amount: string; createdAt: string }): void {
-  if (typeof window === "undefined") return;
-  const orders = getRecentOrders().filter((o) => o.id !== order.id);
-  orders.unshift(order);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders.slice(0, 20)));
+  const json = await res.json()
+  return json.data as Array<{
+    id: string
+    type: string
+    version: number
+    data: string
+    idempotencyKey: string
+    timestamp: string
+  }>
 }

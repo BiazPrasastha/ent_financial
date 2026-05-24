@@ -166,6 +166,58 @@ export default fp(async (app: FastifyInstance) => {
     });
   });
 
+  app.get("/orders", async (request, reply) => {
+    const query = request.query as { status?: string };
+    const status = query.status as "PENDING" | "PROCESSING" | "PAID" | "SHIPPED" | "DELIVERED" | "REFUNDED" | "SETTLED" | undefined;
+    const where = status ? { status } : {};
+
+    const orders = await app.prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return reply.status(200).send({
+      data: orders.map((o) => ({
+        id: o.id,
+        customerId: o.customerId,
+        paymentMethod: o.paymentMethod,
+        amount: formatDecimal(toDecimal(o.amount)),
+        status: o.status,
+        version: o.version,
+        createdAt: o.createdAt.toISOString(),
+        updatedAt: o.updatedAt.toISOString(),
+      })),
+    });
+  });
+
+  app.get("/orders/:id/events", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const order = await app.prisma.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      return reply.status(404).send({
+        error: `Order not found: ${id}`,
+        code: "ORDER_NOT_FOUND",
+      });
+    }
+
+    const events = await eventService.getOrderEvents(id);
+
+    return reply.status(200).send({
+      data: events.map((e) => ({
+        id: e.id,
+        type: e.eventType,
+        version: e.version,
+        data: JSON.stringify(e.payload),
+        idempotencyKey: e.idempotencyKey,
+        timestamp: e.timestamp.toISOString(),
+      })),
+    });
+  });
+
   app.get("/orders/:id/ledger", async (request, reply) => {
     const { id } = request.params as { id: string };
 

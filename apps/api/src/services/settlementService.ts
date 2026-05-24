@@ -151,21 +151,21 @@ export class SettlementService {
     const startOfDay = new Date(`${date}T00:00:00`);
     const endOfDay = new Date(`${date}T23:59:59.999`);
 
-    const result = await this.prisma.$queryRawUnsafe(
-      `SELECT
-        COALESCE(SUM(debit), 0) as total_payout,
-        COUNT(DISTINCT "orderId") as orders_settled
-      FROM "Ledger"
-      WHERE "account" = 'seller_payout'
-        AND "timestamp" >= $1 AND "timestamp" <= $2`,
-      startOfDay,
-      endOfDay
-    ) as { total_payout: string; orders_settled: number }[];
+    const entries = await this.prisma.ledger.findMany({
+      where: {
+        account: "seller_payout",
+        timestamp: { gte: startOfDay, lte: endOfDay },
+      },
+      select: { debit: true, orderId: true },
+    });
+
+    const totalPayout = entries.reduce((sum, e) => sum.plus(e.debit ? e.debit.toString() : "0"), Big(0));
+    const ordersSettled = new Set(entries.map((e) => e.orderId)).size;
 
     return {
       date,
-      totalPayout: result[0].total_payout ?? "0.0000",
-      ordersSettled: result[0].orders_settled ?? 0,
+      totalPayout: formatDecimal(totalPayout),
+      ordersSettled,
     };
   }
 
