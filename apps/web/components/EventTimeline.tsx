@@ -14,8 +14,8 @@ const DOT_COLOURS: Record<string, string> = {
 }
 
 function formatTime(iso: string): string {
-  const t = iso.slice(11, 19)
-  return `${t} UTC`
+  const d = new Date(iso)
+  return d.toLocaleDateString() + " " + d.toLocaleTimeString()
 }
 
 function SkeletonEvent() {

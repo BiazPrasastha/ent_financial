@@ -6,8 +6,8 @@ import { formatAmount, computeRunningBalances, toInt, fromInt } from "../lib/dec
 import { ACCOUNT_LABELS } from "../lib/status"
 
 function formatTime(iso: string): string {
-  const t = iso.slice(11, 19)
-  return `${t} UTC`
+  const d = new Date(iso)
+  return d.toLocaleDateString() + " " + d.toLocaleTimeString()
 }
 
 function SkeletonRow() {

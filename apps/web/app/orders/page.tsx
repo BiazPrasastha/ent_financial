@@ -66,11 +66,16 @@ function MobileCard({ order }: { order: Order }) {
   )
 }
 
+const PAGE_SIZE = 25
+
 export default function OrdersPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL")
+  const [search, setSearch] = useState("")
+  const [dateFilter, setDateFilter] = useState("")
+  const [page, setPage] = useState(0)
 
   const load = useCallback(async () => {
     try {
@@ -89,7 +94,16 @@ export default function OrdersPage() {
     load()
   }, [load])
 
-  const displayed = statusFilter === "ALL" ? allOrders : allOrders.filter((o) => o.status === statusFilter)
+  const q = search.toLowerCase().trim()
+  const filtered = (statusFilter === "ALL" ? allOrders : allOrders.filter((o) => o.status === statusFilter))
+    .filter((o) => !q || o.id.toLowerCase().includes(q) || o.customerId.toLowerCase().includes(q))
+    .filter((o) => !dateFilter || o.createdAt.slice(0, 10) === dateFilter)
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages - 1)
+  const paginated = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+
+  useEffect(() => { setPage(0) }, [statusFilter, search, dateFilter])
 
   return (
     <>
@@ -109,20 +123,51 @@ export default function OrdersPage() {
 
       {!loading && <SummaryCard orders={allOrders} />}
 
-      <div className="flex items-center gap-2 mb-4">
-        {FILTERS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
-              statusFilter === s
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-            }`}
-          >
-            {s === "ALL" ? "All" : STATUS_LABEL[s]}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          {FILTERS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                statusFilter === s
+                  ? "bg-gray-900 text-white border-gray-900"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {s === "ALL" ? "All" : STATUS_LABEL[s]}
+            </button>
+          ))}
+        </div>
+        <span className="hidden sm:inline text-gray-300">|</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
+          />
+          {dateFilter && (
+            <button
+              onClick={() => setDateFilter("")}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              &times;
+            </button>
+          )}
+        </div>
+        <div className="relative w-full sm:w-48">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search by ID or customer&hellip;"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900"
+          />
+        </div>
       </div>
 
       {loading && allOrders.length === 0 && (
@@ -133,18 +178,22 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {!loading && displayed.length === 0 && !error && (
+      {!loading && filtered.length === 0 && !error && (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <p className="text-sm text-gray-500">
-            {statusFilter === "ALL" ? "No orders yet." : `No ${STATUS_LABEL[statusFilter].toLowerCase()} orders.`}
+            {search
+              ? "No orders match your search."
+              : statusFilter === "ALL"
+                ? "No orders yet."
+                : `No ${STATUS_LABEL[statusFilter].toLowerCase()} orders.`}
           </p>
         </div>
       )}
 
-      {displayed.length > 0 && (
+      {filtered.length > 0 && (
         <>
           <div className="sm:hidden space-y-3">
-            {displayed.map((order) => (
+            {paginated.map((order) => (
               <MobileCard key={order.id} order={order} />
             ))}
           </div>
@@ -157,11 +206,12 @@ export default function OrdersPage() {
                   <th className="text-left text-xs text-gray-500 font-medium px-4 py-3">Customer</th>
                   <th className="text-right text-xs text-gray-500 font-medium px-4 py-3">Amount</th>
                   <th className="text-center text-xs text-gray-500 font-medium px-4 py-3">Status</th>
+                  <th className="text-center text-xs text-gray-500 font-medium px-4 py-3">Date</th>
                   <th className="w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {displayed.map((order) => (
+                {paginated.map((order) => (
                   <tr
                     key={order.id}
                     className="hover:bg-gray-50 transition-colors cursor-pointer group"
@@ -181,6 +231,9 @@ export default function OrdersPage() {
                         {STATUS_LABEL[order.status]}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-500 whitespace-nowrap">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </td>
                     <td className="px-4 py-3">
                       <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -190,6 +243,51 @@ export default function OrdersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+            <span>
+              {filtered.length === 1
+                ? "1 order"
+                : `${filtered.length.toLocaleString()} orders`}
+              {search && ` matching "${search}"`}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
+              >
+                &larr;
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i).map((i) => {
+                if (totalPages > 7 && i > 0 && i < totalPages - 1 && Math.abs(i - safePage) > 2) {
+                  return i === (safePage < totalPages / 2 ? totalPages - 2 : 1) ? (
+                    <span key={i} className="px-1">&hellip;</span>
+                  ) : null
+                }
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i)}
+                    className={`w-8 h-8 rounded text-xs font-medium transition-colors ${
+                      i === safePage
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={safePage === totalPages - 1}
+                className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
+              >
+                &rarr;
+              </button>
+            </div>
           </div>
         </>
       )}

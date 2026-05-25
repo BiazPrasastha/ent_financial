@@ -6,8 +6,8 @@ import { calcFee, calcNet, formatAmount } from "../lib/decimal"
 import { STATUS_LABEL, STATUS_CLASSES, isTerminal, stepIndex, PROGRESS_STEPS } from "../lib/status"
 
 function formatTime(iso: string): string {
-  const t = iso.slice(11, 19)
-  return `${t} UTC`
+  const d = new Date(iso)
+  return d.toLocaleDateString() + " " + d.toLocaleTimeString()
 }
 
 function ProgressTrack({ status }: { status: Order["status"] }) {
@@ -195,6 +195,9 @@ export default function OrderStatusCard({
         </p>
         <p>
           Version: <span className="font-mono text-gray-700">v{order.version}</span>
+        </p>
+        <p>
+          Created: <span className="font-mono text-gray-700">{new Date(order.createdAt).toLocaleString()}</span>
         </p>
         <p>
           Updated: <span className="font-mono text-gray-700">{formatTime(order.updatedAt)}</span>
